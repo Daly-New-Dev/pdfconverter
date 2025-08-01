@@ -187,7 +187,7 @@
             { id: 'split-pdf', icon: 'scissors', titleKey: 'splitPdf', descKey: 'splitPdfDesc', handler: setupSplitPdf },
             { id: 'photo-to-text', icon: 'photoScan', titleKey: 'photoToText', descKey: 'photoToTextDesc', handler: setupOcrTool, accept: 'image/*' },
             { id: 'pdf-to-text', icon: 'pdfScan', titleKey: 'pdfToText', descKey: 'pdfToTextDesc', handler: setupOcrTool, accept: '.pdf' },
-            { id: 'pdf-to-word', icon: 'fileWord', titleKey: 'pdfToWord', descKey: 'pdfToWordDesc', handler: setupServerRequiredTool },
+            { id: 'pdf-to-word', icon: 'fileWord', titleKey: 'pdfToWord', descKey: 'pdfToWordDesc', handler: setupPdfToWord },
             { id: 'compress-pdf', icon: 'fileArchive', titleKey: 'compressPdf', descKey: 'compressPdfDesc', handler: setupServerRequiredTool },
         ];
 
@@ -680,7 +680,8 @@
                 try {
                     const response = await fetch(GAS_WEB_APP_URL, {
                         method: 'POST',
-                        body: JSON.stringify({ base64: base64String }),
+                        body: JSON.stringify({ action: 'ocr', base64: base64String }),
+                        headers: { 'Content-Type': 'text/plain' },
                         redirect: "follow"
                     });
                     
@@ -719,6 +720,80 @@
                     copyBtn.innerHTML = originalText;
                     copyBtn.classList.remove('bg-green-200');
                 }, 2000);
+            });
+        }
+        
+        function setupPdfToWord(page) {
+            const contentDiv = page.querySelector('.tool-content');
+            contentDiv.innerHTML = `
+                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
+                    ${icons.fileUp}
+                    <p class="mt-2 text-lg font-semibold" data-lang-key="uploadAreaTitle"></p>
+                    <input type="file" class="file-input hidden" accept=".pdf" />
+                    <button class="select-btn mt-6 px-6 py-2 bg-[#0D47A1] text-white font-bold rounded-md" data-lang-key="selectPDF"></button>
+                </div>
+                <div class="processing-container hidden text-center">
+                    <div class="loader"></div>
+                    <p data-lang-key="processing"></p>
+                </div>
+            `;
+            
+            const fileInput = contentDiv.querySelector('.file-input');
+            const uploadContainer = contentDiv.querySelector('.upload-container');
+            const processingContainer = contentDiv.querySelector('.processing-container');
+
+            uploadContainer.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                uploadContainer.classList.add('hidden');
+                processingContainer.classList.remove('hidden');
+                updateUIText();
+
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = async () => {
+                    const base64String = reader.result.split(',')[1];
+                    const GAS_WEB_APP_URL = "YOUR_DEPLOYED_APPS_SCRIPT_URL_HERE";
+
+                    if (GAS_WEB_APP_URL === "YOUR_DEPLOYED_APPS_SCRIPT_URL_HERE") {
+                        alert("Please replace 'YOUR_DEPLOYED_APPS_SCRIPT_URL_HERE' in the code with your actual Google Apps Script URL.");
+                        processingContainer.classList.add('hidden');
+                        uploadContainer.classList.remove('hidden');
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch(GAS_WEB_APP_URL, {
+                            method: 'POST',
+                            body: JSON.stringify({ action: 'pdfToWord', base64: base64String, fileName: file.name }),
+                            headers: { 'Content-Type': 'text/plain' },
+                            redirect: 'follow'
+                        });
+
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        const result = await response.json();
+
+                        if (result && result.status === 'SUCCESS') {
+                            // Automatically download the file
+                            const link = document.createElement('a');
+                            link.href = result.downloadUrl;
+                            link.download = file.name.replace('.pdf', '.docx');
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        } else {
+                            throw new Error((result && result.message) || 'Conversion failed.');
+                        }
+                    } catch (err) {
+                        console.error("PDF to Word Error:", err);
+                        alert(`An error occurred: ${err.message}`);
+                    } finally {
+                        processingContainer.classList.add('hidden');
+                        uploadContainer.classList.remove('hidden');
+                    }
+                };
             });
         }
 
