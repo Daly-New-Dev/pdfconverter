@@ -670,13 +670,6 @@
                 
                 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxvYP1djyXTz3O6xfang7IZ6yFY9eobAo75VbNa6TpliAzldkc7btbXJIkl1F1WumiCnQ/exec";
 
-                if (GAS_WEB_APP_URL === "YOUR_DEPLOYED_APPS_SCRIPT_URL_HERE") {
-                    alert("Please replace 'YOUR_DEPLOYED_APPS_SCRIPT_URL_HERE' in the code with your actual Google Apps Script URL to make OCR work.");
-                    processingContainer.classList.add('hidden');
-                    uploadContainer.classList.remove('hidden');
-                    return;
-                }
-
                 try {
                     const response = await fetch(GAS_WEB_APP_URL, {
                         method: 'POST',
@@ -755,14 +748,7 @@
                 reader.readAsDataURL(file);
                 reader.onload = async () => {
                     const base64String = reader.result.split(',')[1];
-                    const GAS_WEB_APP_URL = "YOUR_DEPLOYED_APPS_SCRIPT_URL_HERE";
-
-                    if (GAS_WEB_APP_URL === "YOUR_DEPLOYED_APPS_SCRIPT_URL_HERE") {
-                        alert("Please replace 'YOUR_DEPLOYED_APPS_SCRIPT_URL_HERE' in the code with your actual Google Apps Script URL.");
-                        processingContainer.classList.add('hidden');
-                        uploadContainer.classList.remove('hidden');
-                        return;
-                    }
+                    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxvYP1djyXTz3O6xfang7IZ6yFY9eobAo75VbNa6TpliAzldkc7btbXJIkl1F1WumiCnQ/exec";
 
                     try {
                         const response = await fetch(GAS_WEB_APP_URL, {
