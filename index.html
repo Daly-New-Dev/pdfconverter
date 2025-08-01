@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sovannaphum PDF - All-in-One PDF Tools</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- PDF & ZIP Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
+    <!-- Google Font for Khmer -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Noto Sans Khmer', sans-serif; }
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.5s; }
+        .dragging { opacity: 0.4; border: 2px dashed #0D47A1; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* Custom spinner */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0D47A1;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+    <!-- App Container -->
+    <div id="app">
+
+        <!-- Header -->
+        <header class="bg-[#0D47A1] text-white shadow-md sticky top-0 z-50">
+            <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+                <h1 id="header-title" class="text-2xl md:text-3xl font-bold cursor-pointer" data-lang-key="title"></h1>
+                <div class="flex items-center">
+                    <button id="lang-km" class="px-3 py-1 text-sm rounded-l-md">ខ្មែរ</button>
+                    <button id="lang-en" class="px-3 py-1 text-sm rounded-r-md">English</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="p-4 md:p-8">
+            <button id="back-to-home" class="hidden mb-6 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" data-lang-key="backToHome"></button>
+
+            <!-- Home Page -->
+            <div id="page-home" class="page active">
+                <div class="container mx-auto">
+                    <div class="text-center mb-8 md:mb-12">
+                        <h2 class="text-3xl md:text-4xl font-bold text-gray-800" data-lang-key="toolsTitle"></h2>
+                    </div>
+                    <div id="tool-card-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+                </div>
+            </div>
+
+            <!-- Generic Tool Page Structure (for cloning) -->
+            <div id="page-template" class="hidden">
+                 <div class="container mx-auto bg-white p-8 rounded-xl shadow-lg border border-gray-200">
+                    <div class="flex flex-col md:flex-row items-center text-center md:text-left">
+                        <div class="tool-icon text-[#0D47A1] mb-4 md:mb-0 md:mr-6 p-4 bg-blue-50 rounded-full"></div>
+                        <div>
+                            <h2 class="tool-title text-3xl font-bold text-gray-800"></h2>
+                            <p class="tool-desc text-gray-600 mt-1"></p>
+                        </div>
+                    </div>
+                    <div class="tool-content mt-8 border-t pt-8">
+                        <!-- Tool-specific UI will be injected here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- All tool pages will be dynamically generated into this container -->
+            <div id="tool-pages-container"></div>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-white mt-12 py-6 border-t">
+            <div class="container mx-auto text-center text-gray-500 text-sm">
+                <p id="footer-copyright" data-lang-key="copyright"></p>
+                <p class="mt-1" data-lang-key="privacyNotice"></p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- PDF.js worker setup ---
+        if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js`;
+        }
+
+        // --- STATE MANAGEMENT ---
+        let state = {
+            language: 'km',
+            currentPage: 'home',
+        };
+
+        // --- ICONS & TRANSLATIONS ---
+        const icons = {
+            camera: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>`,
+            filePdf: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M10 12v6"></path><path d="M13 18h-3"></path><path d="M10 15h3"></path></svg>`,
+            fileWord: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M10.2 14.2 8 20l-2.2-5.8"></path><path d="m14 14 3 6 3-6"></path></svg>`,
+            merge: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 18 3-3 3 3"></path><path d="m18 3-3 3-3-3"></path><path d="M6 21V9a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v12"></path></svg>`,
+            scissors: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"></circle><path d="M8.12 8.12 12 12"></path><path d="M20 4 8.12 15.88"></path><circle cx="6" cy="18" r="3"></circle><path d="M14.88 14.88 20 20"></path></svg>`,
+            fileArchive: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><circle cx="12" cy="15" r="2"></circle><path d="M12 11v2"></path><path d="M12 17v2"></path></svg>`,
+            photoScan: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 15v6h-6"/><path d="M3 9V3h6"/><path d="M3 12h18"/></svg>`,
+            pdfScan: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 14h3M8 18h3"/></svg>`,
+            fileUp: `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-gray-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>`,
+            trash2: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>`,
+            gripVertical: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>`,
+            copy: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`,
+        };
+        const content = {
+            km: {
+                title: "សូវណ្ណភូមិ PDF", toolsTitle: "ឧបករណ៍ PDF ឥតគិតថ្លៃ និងងាយស្រួលប្រើ",
+                photoToPdf: "រូបថតទៅជា PDF", photoToPdfDesc: "បម្លែងរូបភាព JPG, PNG និងផ្សេងៗទៀតទៅជាឯកសារ PDF ។",
+                pdfToPhoto: "PDF ទៅជារូបថត", pdfToPhotoDesc: "បម្លែងទំព័រនីមួយៗនៃ PDF ទៅជារូបភាព JPG ឬ PNG ។",
+                pdfToWord: "PDF ទៅជា Word", pdfToWordDesc: "បម្លែង PDF ទៅជាឯកសារ Microsoft Word ដែលអាចកែសម្រួលបាន។",
+                mergePdf: "បញ្ចូល PDF ច្រើន", mergePdfDesc: "បញ្ចូលឯកសារ PDF ច្រើនទៅក្នុងឯកសារតែមួយ។",
+                splitPdf: "បំបែក PDF", splitPdfDesc: "ទាញយកទំព័រមួយ ឬច្រើនពីឯកសារ PDF របស់អ្នក។",
+                compressPdf: "បង្ហាប់ PDF", compressPdfDesc: "បន្ថយទំហំឯកសារ PDF របស់អ្នក ជាមួយគុណភាពល្អបំផុត។",
+                photoToText: "រូបថតទៅជាអក្សរ (OCR)", photoToTextDesc: "ទាញយកអក្សរខ្មែរពីក្នុងរូបភាព ដោយប្រើបច្ចេកវិទ្យា OCR ។",
+                pdfToText: "PDF ទៅជាអក្សរ (OCR)", pdfToTextDesc: "ទាញយកអក្សរខ្មែរទាំងអស់ពីក្នុងឯកសារ PDF របស់អ្នក។",
+                backToHome: "ត្រឡប់ទៅទំព័រដើម", uploadAreaTitle: "អូសឯកសារមកទីនេះ ឬចុចដើម្បីជ្រើសរើស",
+                uploadAreaSubtitle: "ការរក្សាឯកជនភាពរបស់អ្នកគឺសំខាន់សម្រាប់យើង", selectImages: "ជ្រើសរើសរូបភាព",
+                selectPDF: "ជ្រើសរើស PDF", selectPDFs: "ជ្រើសរើស PDF ច្រើន", createPdf: "បង្កើតជា PDF",
+                convertToJPG: "បម្លែងទៅជា JPG", mergePDFs: "បញ្ចូល PDF", splitPDF: "បំបែក PDF",
+                processing: "កំពុងដំណើរការ...", pageSize: "ទំហំទំព័រ", orientation: "ទិសដៅ",
+                portrait: "បញ្ឈរ", landscape: "ប្ដេក", margin: "គែម", noMargin: "គ្មានគែម",
+                smallMargin: "គែមតូច", bigMargin: "គែមធំ", options: "ការកំណត់",
+                copyright: `&copy; ${new Date().getFullYear()} សូវណ្ណភូមិ PDF. រក្សាសិទ្ធិគ្រប់យ៉ាង។`,
+                privacyNotice: "ឯកសាររបស់អ្នកនឹងត្រូវលុបចោលដោយស្វ័យប្រវត្តិក្នុងរយៈពេលមួយម៉ោង។",
+                featureComingSoon: "មុខងារនេះនឹងមានក្នុងពេលឆាប់ៗនេះ!",
+                serverRequired: "មុខងារនេះត្រូវការដំណើរការលើ Server",
+                serverRequiredDesc: "ការបម្លែងដែលមានគុណភាពខ្ពស់នេះ គឺស្មុគស្មាញពេកមិនអាចដំណើរការក្នុង browser របស់អ្នកបានទេ។ នៅក្នុងកម្មវិធីពិតប្រាកដ ឯកសាររបស់អ្នកនឹងត្រូវបានអាប់ឡូតទៅកាន់ server ដែលមានសុវត្ថិភាពដើម្បីបម្លែង។",
+                splitInstructions: "បញ្ចូលលេខទំព័រ ឬចន្លោះទំព័រ (ឧទាហរណ៍: 1, 3-5, 8)",
+                splitPlaceholder: "ឧទា: 1-3, 5, 8",
+                copyText: "ចម្លងអត្ថបទ", copied: "បានចម្លង!",
+            },
+            en: {
+                title: "Sovannaphum PDF", toolsTitle: "Free and Easy-to-Use PDF Tools",
+                photoToPdf: "Photo to PDF", photoToPdfDesc: "Convert JPG, PNG, and other images to a PDF file.",
+                pdfToPhoto: "PDF to Photo", pdfToPhotoDesc: "Convert each page of a PDF into a JPG or PNG image.",
+                pdfToWord: "PDF to Word", pdfToWordDesc: "Convert PDF to an editable Microsoft Word document.",
+                mergePdf: "Merge PDF", mergePdfDesc: "Combine multiple PDF files into a single document.",
+                splitPdf: "Split PDF", splitPdfDesc: "Extract one or more pages from your PDF file.",
+                compressPdf: "Compress PDF", compressPdfDesc: "Reduce the file size of your PDF with the best quality.",
+                photoToText: "Photo to Text (OCR)", photoToTextDesc: "Extract Khmer text from any image using OCR technology.",
+                pdfToText: "PDF to Text (OCR)", pdfToTextDesc: "Extract all Khmer text from your PDF document.",
+                backToHome: "Back to Home", uploadAreaTitle: "Drag & drop files here or click to select",
+                uploadAreaSubtitle: "Your privacy is important to us", selectImages: "Select Images",
+                selectPDF: "Select PDF", selectPDFs: "Select PDFs", createPdf: "Create PDF",
+                convertToJPG: "Convert to JPG", mergePDFs: "Merge PDFs", splitPDF: "Split PDF",
+                processing: "Processing...", pageSize: "Page Size", orientation: "Orientation",
+                portrait: "Portrait", landscape: "Landscape", margin: "Margin", noMargin: "No Margin",
+                smallMargin: "Small Margin", bigMargin: "Big Margin", options: "Options",
+                copyright: `&copy; ${new Date().getFullYear()} Sovannaphum PDF. All rights reserved.`,
+                privacyNotice: "Your files are automatically deleted after one hour.",
+                featureComingSoon: "Feature coming soon!",
+                serverRequired: "This Feature Requires Server-Side Processing",
+                serverRequiredDesc: "This high-quality conversion is too complex to run in your browser. In a real application, your file would be securely uploaded to a server for processing.",
+                splitInstructions: "Enter page numbers or ranges (e.g., 1, 3-5, 8)",
+                splitPlaceholder: "e.g., 1-3, 5, 8",
+                copyText: "Copy Text", copied: "Copied!",
+            }
+        };
+        const tools = [
+            { id: 'photo-to-pdf', icon: 'camera', titleKey: 'photoToPdf', descKey: 'photoToPdfDesc', handler: setupPhotoToPdf },
+            { id: 'pdf-to-photo', icon: 'filePdf', titleKey: 'pdfToPhoto', descKey: 'pdfToPhotoDesc', handler: setupPdfToPhoto },
+            { id: 'merge-pdf', icon: 'merge', titleKey: 'mergePdf', descKey: 'mergePdfDesc', handler: setupMergePdf },
+            { id: 'split-pdf', icon: 'scissors', titleKey: 'splitPdf', descKey: 'splitPdfDesc', handler: setupSplitPdf },
+            { id: 'photo-to-text', icon: 'photoScan', titleKey: 'photoToText', descKey: 'photoToTextDesc', handler: setupOcrTool, accept: 'image/*' },
+            { id: 'pdf-to-text', icon: 'pdfScan', titleKey: 'pdfToText', descKey: 'pdfToTextDesc', handler: setupOcrTool, accept: '.pdf' },
+            { id: 'pdf-to-word', icon: 'fileWord', titleKey: 'pdfToWord', descKey: 'pdfToWordDesc', handler: setupServerRequiredTool },
+            { id: 'compress-pdf', icon: 'fileArchive', titleKey: 'compressPdf', descKey: 'compressPdfDesc', handler: setupServerRequiredTool },
+        ];
+
+        // --- DOM ELEMENTS ---
+        const backButton = document.getElementById('back-to-home');
+        const toolCardContainer = document.getElementById('tool-card-container');
+        const toolPagesContainer = document.getElementById('tool-pages-container');
+
+        // --- DYNAMIC PAGE & TOOL SETUP ---
+        
+        function createToolPage(tool) {
+            const pageTemplate = document.getElementById('page-template').cloneNode(true);
+            pageTemplate.id = `page-${tool.id}`;
+            pageTemplate.classList.add('page');
+            pageTemplate.classList.remove('hidden');
+            toolPagesContainer.appendChild(pageTemplate);
+            tool.handler(pageTemplate, tool);
+        }
+        
+        // --- TOOL HANDLERS ---
+
+        function setupPhotoToPdf(page) {
+            const contentDiv = page.querySelector('.tool-content');
+            contentDiv.innerHTML = `
+                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
+                    ${icons.fileUp}
+                    <p class="mt-2 text-lg font-semibold text-gray-700" data-lang-key="uploadAreaTitle"></p>
+                    <p class="mt-1 text-sm text-gray-500" data-lang-key="uploadAreaSubtitle"></p>
+                    <input type="file" class="file-input hidden" multiple accept="image/*" />
+                    <button class="select-btn mt-6 px-6 py-2 bg-[#0D47A1] text-white font-bold rounded-md hover:bg-[#0b3a8a] transition-colors" data-lang-key="selectImages"></button>
+                </div>
+                <div class="preview-area hidden">
+                     <div class="image-preview-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4"></div>
+                     <div class="mt-8 p-6 bg-gray-50 rounded-lg border">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4" data-lang-key="options"></h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700" data-lang-key="pageSize"></label>
+                                <select class="pageSize-select mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#0D47A1] focus:border-[#0D47A1] sm:text-sm rounded-md">
+                                    <option value="a4">A4</option><option value="letter">Letter</option><option value="a3">A3</option><option value="a5">A5</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700" data-lang-key="orientation"></label>
+                                <select class="orientation-select mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#0D47A1] focus:border-[#0D47A1] sm:text-sm rounded-md">
+                                    <option value="portrait" data-lang-key="portrait"></option><option value="landscape" data-lang-key="landscape"></option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700" data-lang-key="margin"></label>
+                                <select class="margin-select mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#0D47A1] focus:border-[#0D47A1] sm:text-sm rounded-md">
+                                    <option value="small" data-lang-key="smallMargin"></option><option value="none" data-lang-key="noMargin"></option><option value="big" data-lang-key="bigMargin"></option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-8 text-center">
+                        <button class="process-btn w-full md:w-auto px-12 py-4 bg-[#FFC107] text-gray-900 font-bold rounded-md hover:bg-amber-400 transition-colors text-lg" data-lang-key="createPdf"></button>
+                    </div>
+                </div>
+            `;
+            
+            let images = [];
+            let dragItem = null;
+            let dragOverItem = null;
+
+            const uploadContainer = contentDiv.querySelector('.upload-container');
+            const fileInput = contentDiv.querySelector('.file-input');
+            const previewArea = contentDiv.querySelector('.preview-area');
+            const imageGrid = contentDiv.querySelector('.image-preview-grid');
+            const processBtn = contentDiv.querySelector('.process-btn');
+
+            const renderPreviews = () => {
+                imageGrid.innerHTML = '';
+                if (images.length === 0) {
+                    uploadContainer.classList.remove('hidden');
+                    previewArea.classList.add('hidden');
+                    return;
+                }
+                uploadContainer.classList.add('hidden');
+                previewArea.classList.remove('hidden');
+
+                images.forEach((image, index) => {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = "relative group bg-gray-100 p-2 rounded-lg shadow-sm cursor-grab";
+                    wrapper.setAttribute('draggable', true);
+                    wrapper.dataset.index = index;
+                    wrapper.innerHTML = `
+                        <img src="${image.preview}" alt="preview" class="w-full h-32 object-cover rounded-md pointer-events-none" />
+                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-300 flex items-center justify-center rounded-md">
+                            <button data-id="${image.id}" class="remove-btn p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">${icons.trash2}</button>
+                        </div>
+                        <div class="absolute top-1 right-1 text-white bg-gray-800 bg-opacity-60 rounded-full w-6 h-6 flex items-center justify-center font-bold text-sm">${index + 1}</div>
+                        <div class="absolute left-1 top-1/2 -translate-y-1/2 h-full flex items-center opacity-50">${icons.gripVertical}</div>
+                    `;
+                    imageGrid.appendChild(wrapper);
+                });
+
+                const addMoreBtn = document.createElement('div');
+                addMoreBtn.className = "border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center hover:border-[#0D47A1] transition-colors cursor-pointer aspect-square";
+                addMoreBtn.innerHTML = `<div class="text-center">${icons.fileUp.replace(/48/g, '32')}<p class="mt-1 text-sm text-gray-600" data-lang-key="selectImages"></p></div>`;
+                addMoreBtn.addEventListener('click', () => fileInput.click());
+                imageGrid.appendChild(addMoreBtn);
+                updateUIText();
+            };
+
+            const handleFileSelect = (files) => {
+                const newImageFiles = Array.from(files).filter(file => file.type.startsWith('image/')).map(file => ({
+                    file: file,
+                    id: Math.random().toString(36).substring(2, 9),
+                    preview: URL.createObjectURL(file)
+                }));
+                images = [...images, ...newImageFiles];
+                renderPreviews();
+            };
+
+            uploadContainer.addEventListener('click', () => fileInput.click());
+            uploadContainer.addEventListener('dragover', (e) => e.preventDefault());
+            uploadContainer.addEventListener('drop', (e) => { e.preventDefault(); handleFileSelect(e.dataTransfer.files); });
+            fileInput.addEventListener('change', (e) => handleFileSelect(e.target.files));
+
+            imageGrid.addEventListener('click', (e) => {
+                const removeBtn = e.target.closest('.remove-btn');
+                if (removeBtn) {
+                    images = images.filter(img => img.id !== removeBtn.dataset.id);
+                    renderPreviews();
+                }
+            });
+
+            imageGrid.addEventListener('dragstart', (e) => {
+                dragItem = e.target.closest('[draggable="true"]');
+                setTimeout(() => dragItem.classList.add('dragging'), 0);
+            });
+            imageGrid.addEventListener('dragend', () => dragItem.classList.remove('dragging'));
+            imageGrid.addEventListener('dragover', (e) => e.preventDefault());
+            imageGrid.addEventListener('drop', (e) => {
+                dragOverItem = e.target.closest('[draggable="true"]');
+                if (dragItem && dragOverItem && dragItem !== dragOverItem) {
+                    const fromIndex = parseInt(dragItem.dataset.index);
+                    const toIndex = parseInt(dragOverItem.dataset.index);
+                    const item = images.splice(fromIndex, 1)[0];
+                    images.splice(toIndex, 0, item);
+                    renderPreviews();
+                }
+            });
+
+            processBtn.addEventListener('click', async () => {
+                if (images.length === 0) return;
+                processBtn.disabled = true;
+                processBtn.innerHTML = `<div class="loader !w-6 !h-6 !border-2 mx-auto"></div>`;
+
+                const { jsPDF } = window.jspdf;
+                const orientation = contentDiv.querySelector('.orientation-select').value;
+                const pageSize = contentDiv.querySelector('.pageSize-select').value;
+                const marginValue = contentDiv.querySelector('.margin-select').value;
+                const pdf = new jsPDF(orientation, 'mm', pageSize);
+                const marginValues = { none: 0, small: 10, big: 20 };
+                const pageMargin = marginValues[marginValue];
+
+                for (let i = 0; i < images.length; i++) {
+                    const imgData = images[i];
+                    const img = new Image();
+                    img.src = imgData.preview;
+                    await new Promise(resolve => {
+                        img.onload = () => {
+                            const pageW = pdf.internal.pageSize.getWidth();
+                            const pageH = pdf.internal.pageSize.getHeight();
+                            const contentW = pageW - (pageMargin * 2);
+                            const contentH = pageH - (pageMargin * 2);
+                            const ratio = img.naturalWidth / img.naturalHeight;
+                            let finalW = contentW;
+                            let finalH = finalW / ratio;
+                            if (finalH > contentH) {
+                                finalH = contentH;
+                                finalW = finalH * ratio;
+                            }
+                            const x = (pageW - finalW) / 2;
+                            const y = (pageH - finalH) / 2;
+                            if (i > 0) pdf.addPage();
+                            pdf.addImage(img, 'JPEG', x, y, finalW, finalH);
+                            resolve();
+                        };
+                    });
+                }
+                pdf.save('sovannaphum-pdf.pdf');
+                processBtn.disabled = false;
+                updateUIText();
+            });
+        }
+
+        function setupPdfToPhoto(page) {
+            const contentDiv = page.querySelector('.tool-content');
+            contentDiv.innerHTML = `
+                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
+                    ${icons.fileUp}
+                    <p class="mt-2 text-lg font-semibold text-gray-700" data-lang-key="uploadAreaTitle"></p>
+                    <input type="file" class="file-input hidden" accept=".pdf" />
+                    <button class="select-btn mt-6 px-6 py-2 bg-[#0D47A1] text-white font-bold rounded-md hover:bg-[#0b3a8a]" data-lang-key="selectPDF"></button>
+                </div>
+                <div class="processing-container hidden text-center">
+                    <div class="loader"></div>
+                    <p data-lang-key="processing"></p>
+                </div>
+            `;
+            const uploadContainer = contentDiv.querySelector('.upload-container');
+            const fileInput = contentDiv.querySelector('.file-input');
+            const processingContainer = contentDiv.querySelector('.processing-container');
+            
+            uploadContainer.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                uploadContainer.classList.add('hidden');
+                processingContainer.classList.remove('hidden');
+                updateUIText();
+
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await window.pdfjsLib.getDocument({data: arrayBuffer}).promise;
+                    const zip = new JSZip();
+
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const viewport = page.getViewport({ scale: 2.0 });
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+                        
+                        await page.render({ canvasContext: context, viewport: viewport }).promise;
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                        zip.file(`page_${i}.jpg`, dataUrl.split(',')[1], { base64: true });
+                    }
+
+                    const zipBlob = await zip.generateAsync({ type: 'blob' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(zipBlob);
+                    link.download = `${file.name.replace('.pdf', '')}.zip`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href);
+
+                } catch (error) {
+                    console.error('Error processing PDF:', error);
+                    alert('An error occurred. Please try a different PDF.');
+                } finally {
+                     uploadContainer.classList.remove('hidden');
+                     processingContainer.classList.add('hidden');
+                }
+            });
+        }
+
+        function setupMergePdf(page) {
+            const contentDiv = page.querySelector('.tool-content');
+            contentDiv.innerHTML = `
+                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
+                    ${icons.fileUp}
+                    <p class="mt-2 text-lg font-semibold text-gray-700" data-lang-key="uploadAreaTitle"></p>
+                    <input type="file" class="file-input hidden" accept=".pdf" multiple />
+                    <button class="select-btn mt-6 px-6 py-2 bg-[#0D47A1] text-white font-bold rounded-md hover:bg-[#0b3a8a]" data-lang-key="selectPDFs"></button>
+                </div>
+                <div class="file-list-container mt-4"></div>
+                <div class="mt-8 text-center">
+                    <button class="process-btn hidden w-full md:w-auto px-12 py-4 bg-[#FFC107] text-gray-900 font-bold rounded-md" data-lang-key="mergePDFs"></button>
+                </div>
+            `;
+            const fileInput = contentDiv.querySelector('.file-input');
+            const fileListContainer = contentDiv.querySelector('.file-list-container');
+            const processBtn = contentDiv.querySelector('.process-btn');
+            let files = [];
+
+            contentDiv.querySelector('.upload-container').addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => {
+                files = Array.from(e.target.files);
+                renderFileList();
+            });
+
+            function renderFileList() {
+                fileListContainer.innerHTML = files.map(f => `<div class="bg-gray-100 p-2 my-1 rounded">${f.name}</div>`).join('');
+                processBtn.classList.toggle('hidden', files.length < 2);
+            }
+
+            processBtn.addEventListener('click', async () => {
+                processBtn.disabled = true;
+                processBtn.innerHTML = `<div class="loader !w-6 !h-6 !border-2 mx-auto"></div>`;
+
+                const { PDFDocument } = window.PDFLib;
+                const mergedPdf = await PDFDocument.create();
+
+                for (const file of files) {
+                    const pdfBytes = await file.arrayBuffer();
+                    const pdfDoc = await PDFDocument.load(pdfBytes);
+                    const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+                    copiedPages.forEach(page => mergedPdf.addPage(page));
+                }
+
+                const mergedPdfBytes = await mergedPdf.save();
+                const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'merged.pdf';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+                
+                processBtn.disabled = false;
+                updateUIText();
+            });
+        }
+        
+        function setupSplitPdf(page) {
+            const contentDiv = page.querySelector('.tool-content');
+            contentDiv.innerHTML = `
+                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
+                    ${icons.fileUp}
+                    <p class="mt-2 text-lg font-semibold text-gray-700" data-lang-key="uploadAreaTitle"></p>
+                    <input type="file" class="file-input hidden" accept=".pdf" />
+                    <button class="select-btn mt-6 px-6 py-2 bg-[#0D47A1] text-white font-bold rounded-md hover:bg-[#0b3a8a]" data-lang-key="selectPDF"></button>
+                </div>
+                <div class="options-container hidden mt-4 p-4 bg-gray-50 rounded-lg border">
+                     <label class="block text-sm font-medium text-gray-700" data-lang-key="splitInstructions"></label>
+                     <input type="text" class="range-input mt-1 block w-full p-2 border-gray-300 rounded-md" data-lang-placeholder-key="splitPlaceholder" />
+                     <div class="mt-4 text-center">
+                        <button class="process-btn w-full md:w-auto px-12 py-4 bg-[#FFC107] text-gray-900 font-bold rounded-md" data-lang-key="splitPDF"></button>
+                     </div>
+                </div>
+            `;
+            const fileInput = contentDiv.querySelector('.file-input');
+            const uploadContainer = contentDiv.querySelector('.upload-container');
+            const optionsContainer = contentDiv.querySelector('.options-container');
+            const rangeInput = contentDiv.querySelector('.range-input');
+            const processBtn = contentDiv.querySelector('.process-btn');
+            let file = null;
+
+            uploadContainer.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => {
+                file = e.target.files[0];
+                if (file) {
+                    uploadContainer.querySelector('p').textContent = file.name;
+                    optionsContainer.classList.remove('hidden');
+                }
+            });
+
+            processBtn.addEventListener('click', async () => {
+                if (!file) return;
+                const rangeText = rangeInput.value;
+                if (!rangeText) {
+                    alert('Please enter page ranges.');
+                    return;
+                }
+
+                processBtn.disabled = true;
+                processBtn.innerHTML = `<div class="loader !w-6 !h-6 !border-2 mx-auto"></div>`;
+
+                try {
+                    const { PDFDocument } = window.PDFLib;
+                    const existingPdfBytes = await file.arrayBuffer();
+                    const pdfDoc = await PDFDocument.load(existingPdfBytes);
+                    const totalPages = pdfDoc.getPageCount();
+
+                    const indices = new Set();
+                    rangeText.split(',').forEach(part => {
+                        if (part.includes('-')) {
+                            const [start, end] = part.split('-').map(Number);
+                            for (let i = start; i <= end; i++) {
+                                if (i > 0 && i <= totalPages) indices.add(i - 1);
+                            }
+                        } else {
+                            const pageNum = Number(part);
+                            if (pageNum > 0 && pageNum <= totalPages) indices.add(pageNum - 1);
+                        }
+                    });
+                    const pageIndices = Array.from(indices).sort((a, b) => a - b);
+
+                    if (pageIndices.length === 0) {
+                        alert('No valid pages selected.');
+                        throw new Error('No valid pages');
+                    }
+
+                    const newPdfDoc = await PDFDocument.create();
+                    const copiedPages = await newPdfDoc.copyPages(pdfDoc, pageIndices);
+                    copiedPages.forEach(page => newPdfDoc.addPage(page));
+
+                    const pdfBytes = await newPdfDoc.save();
+                    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `split_${file.name}`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href);
+
+                } catch (error) {
+                    console.error('Split PDF error:', error);
+                    alert('An error occurred. Check your page ranges and try again.');
+                } finally {
+                    processBtn.disabled = false;
+                    updateUIText();
+                }
+            });
+        }
+        
+        function setupOcrTool(page, tool) {
+            const contentDiv = page.querySelector('.tool-content');
+            const selectFileKey = tool.accept === 'image/*' ? 'selectImages' : 'selectPDF';
+            contentDiv.innerHTML = `
+                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
+                    ${icons.fileUp}
+                    <p class="mt-2 text-lg font-semibold" data-lang-key="uploadAreaTitle"></p>
+                    <input type="file" class="file-input hidden" accept="${tool.accept}" />
+                    <button class="select-btn mt-6 px-6 py-2 bg-[#0D47A1] text-white font-bold rounded-md" data-lang-key="${selectFileKey}"></button>
+                </div>
+                <div class="processing-container hidden text-center">
+                    <div class="loader"></div>
+                    <p data-lang-key="processing"></p>
+                </div>
+                <div class="result-container hidden mt-4">
+                    <div class="relative">
+                        <textarea class="w-full h-64 p-2 border rounded-md bg-gray-50" readonly></textarea>
+                        <button class="copy-btn absolute top-2 right-2 p-2 bg-gray-200 hover:bg-gray-300 rounded-md" data-lang-key="copyText" data-copied-key="copied">
+                            ${icons.copy}
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            const fileInput = contentDiv.querySelector('.file-input');
+            const uploadContainer = contentDiv.querySelector('.upload-container');
+            const processingContainer = contentDiv.querySelector('.processing-container');
+            const resultContainer = contentDiv.querySelector('.result-container');
+            const textArea = resultContainer.querySelector('textarea');
+            const copyBtn = resultContainer.querySelector('.copy-btn');
+
+            uploadContainer.addEventListener('click', () => fileInput.click());
+            contentDiv.querySelector('.select-btn').addEventListener('click', () => fileInput.click());
+
+            const processFileForOcr = async (file) => {
+                if (!file) return;
+
+                uploadContainer.classList.add('hidden');
+                resultContainer.classList.add('hidden');
+                processingContainer.classList.remove('hidden');
+                updateUIText();
+                
+                let base64String;
+                
+                if (file.type === 'application/pdf') {
+                    try {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const pdf = await window.pdfjsLib.getDocument({data: arrayBuffer}).promise;
+                        const page = await pdf.getPage(1);
+                        const viewport = page.getViewport({ scale: 1.5 });
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+                        await page.render({ canvasContext: context, viewport: viewport }).promise;
+                        base64String = canvas.toDataURL('image/jpeg').split(',')[1];
+                    } catch (pdfError) {
+                        console.error("Error processing PDF for OCR:", pdfError);
+                        alert("Could not process PDF file.");
+                        processingContainer.classList.add('hidden');
+                        uploadContainer.classList.remove('hidden');
+                        return;
+                    }
+                } else {
+                    const reader = new FileReader();
+                    await new Promise(resolve => {
+                        reader.onload = () => {
+                            base64String = reader.result.split(',')[1];
+                            resolve();
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                }
+                
+                const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwWK16HhAlafXWOQPxSJLOX2Qj1hZHjdnzkASEIFbq7kAg7gCA5sbsCRivM3-YAnAassA/exec";
+
+                if (GAS_WEB_APP_URL === "YOUR_DEPLOYED_APPS_SCRIPT_URL_HERE") {
+                    alert("Please replace 'YOUR_DEPLOYED_APPS_SCRIPT_URL_HERE' in the code with your actual Google Apps Script URL to make OCR work.");
+                    processingContainer.classList.add('hidden');
+                    uploadContainer.classList.remove('hidden');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(GAS_WEB_APP_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ base64: base64String }),
+                        redirect: "follow"
+                    });
+                    
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    const result = await response.json();
+                    
+                    if (result && result.status === 'SUCCESS') {
+                        textArea.value = result.text;
+                    } else {
+                         throw new Error((result && result.message) || 'Unknown error from Apps Script');
+                    }
+                    resultContainer.classList.remove('hidden');
+
+                } catch (err) {
+                    console.error("OCR Error:", err);
+                    alert("An error occurred during OCR processing. This may be due to CORS policy or an Apps Script error. Check the browser console for details.");
+                    textArea.value = `Error: ${err.message}`;
+                    resultContainer.classList.remove('hidden');
+                } finally {
+                    processingContainer.classList.add('hidden');
+                    uploadContainer.classList.remove('hidden');
+                }
+            };
+
+            fileInput.addEventListener('change', (e) => processFileForOcr(e.target.files[0]));
+
+            copyBtn.addEventListener('click', () => {
+                textArea.select();
+                document.execCommand('copy');
+                const originalText = copyBtn.innerHTML;
+                const copiedText = content[state.language].copied;
+                copyBtn.innerHTML = copiedText;
+                copyBtn.classList.add('bg-green-200');
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalText;
+                    copyBtn.classList.remove('bg-green-200');
+                }, 2000);
+            });
+        }
+
+        function setupServerRequiredTool(page) {
+            const contentDiv = page.querySelector('.tool-content');
+            contentDiv.innerHTML = `
+                <div class="text-center bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-r-lg">
+                    <h3 class="text-xl font-bold text-yellow-800" data-lang-key="serverRequired"></h3>
+                    <p class="mt-2 text-yellow-700" data-lang-key="serverRequiredDesc"></p>
+                </div>
+            `;
+        }
+
+        // --- RENDER & NAVIGATION ---
+        const renderToolCards = () => {
+            const t = content[state.language];
+            toolCardContainer.innerHTML = '';
+            tools.forEach(tool => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-6 rounded-lg shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-gray-200 flex flex-col items-center text-center";
+                card.innerHTML = `<div class="text-[#0D47A1] mb-4">${icons[tool.icon]}</div><h3 class="text-lg font-bold text-gray-900 mb-2">${t[tool.titleKey]}</h3><p class="text-sm text-gray-600 flex-grow">${t[tool.descKey]}</p>`;
+                card.addEventListener('click', () => navigateTo(`page-${tool.id}`));
+                toolCardContainer.appendChild(card);
+            });
+        };
+
+        const updateUIText = () => {
+            const t = content[state.language];
+            document.querySelectorAll('[data-lang-key]').forEach(el => {
+                const key = el.dataset.langKey;
+                if (t[key] && !el.querySelector('.loader')) {
+                    el.innerHTML = t[key];
+                }
+            });
+            document.querySelectorAll('[data-lang-placeholder-key]').forEach(el => {
+                const key = el.dataset.langPlaceholderKey;
+                if(t[key]) el.placeholder = t[key];
+            });
+            document.getElementById('lang-km').className = `px-3 py-1 text-sm rounded-l-md ${state.language === 'km' ? 'bg-[#FFC107] text-gray-900 font-bold' : 'bg-white/20'}`;
+            document.getElementById('lang-en').className = `px-3 py-1 text-sm rounded-r-md ${state.language === 'en' ? 'bg-[#FFC107] text-gray-900 font-bold' : 'bg-white/20'}`;
+        };
+
+        const navigateTo = (pageId) => {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            const targetPage = document.getElementById(pageId);
+            if (targetPage) {
+                targetPage.classList.add('active');
+                state.currentPage = pageId.replace('page-', '');
+            } else {
+                document.getElementById('page-home').classList.add('active');
+                state.currentPage = 'home';
+            }
+            backButton.classList.toggle('hidden', state.currentPage === 'home');
+            window.scrollTo(0, 0);
+        };
+
+        // --- EVENT LISTENERS ---
+        document.getElementById('header-title').addEventListener('click', () => navigateTo('page-home'));
+        backButton.addEventListener('click', () => navigateTo('page-home'));
+        
+        document.getElementById('lang-km').addEventListener('click', () => {
+            state.language = 'km';
+            updateUIText();
+            renderToolCards();
+        });
+        document.getElementById('lang-en').addEventListener('click', () => {
+            state.language = 'en';
+            updateUIText();
+            renderToolCards();
+        });
+
+        // --- INITIALIZATION ---
+        const init = () => {
+            tools.forEach(createToolPage);
+            renderToolCards();
+            updateUIText();
+            document.getElementById('page-home').classList.add('active');
+        };
+
+        init();
+    });
+    </script>
+</body>
+</html>
