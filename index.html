@@ -45,8 +45,8 @@
 
         <!-- Header -->
         <header class="bg-[#0D47A1] text-white shadow-md sticky top-0 z-40">
-            <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-                <h1 id="header-title" class="text-2xl md:text-3xl font-bold cursor-pointer" data-lang-key="title"></h1>
+            <div class="container mx-auto px-4 py-3 sm:py-4 flex justify-between items-center">
+                <h1 id="header-title" class="text-xl sm:text-2xl md:text-3xl font-bold cursor-pointer" data-lang-key="title"></h1>
                 <div class="flex items-center">
                     <button id="lang-km" class="px-3 py-1 text-sm rounded-l-md">ខ្មែរ</button>
                     <button id="lang-en" class="px-3 py-1 text-sm rounded-r-md">English</button>
@@ -70,7 +70,7 @@
 
             <!-- Generic Tool Page Structure (for cloning) -->
             <div id="page-template" class="hidden">
-                 <div class="container mx-auto bg-white p-8 rounded-xl shadow-lg border border-gray-200">
+                 <div class="container mx-auto bg-white p-4 sm:p-8 rounded-xl shadow-lg border border-gray-200">
                      <div class="flex flex-col md:flex-row items-center text-center md:text-left">
                          <div class="tool-icon text-[#0D47A1] mb-4 md:mb-0 md:mr-6 p-4 bg-blue-50 rounded-full"></div>
                          <div>
@@ -247,7 +247,7 @@
         function setupPhotoToPdf(page) {
             const contentDiv = page.querySelector('.tool-content');
             contentDiv.innerHTML = `
-                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
+                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-6 sm:p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
                     ${icons.fileUp}
                     <p class="mt-2 text-lg font-semibold text-gray-700" data-lang-key="uploadAreaTitle"></p>
                     <p class="mt-1 text-sm text-gray-500" data-lang-key="uploadAreaSubtitle"></p>
@@ -310,7 +310,7 @@
                     wrapper.setAttribute('draggable', true);
                     wrapper.dataset.index = index;
                     wrapper.innerHTML = `
-                        <img src="${image.preview}" alt="preview" class="w-full h-32 object-cover rounded-md pointer-events-none" />
+                        <img src="${image.preview}" alt="preview" class="w-full h-24 sm:h-32 object-cover rounded-md pointer-events-none" />
                         <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-300 flex items-center justify-center rounded-md">
                             <button data-id="${image.id}" class="remove-btn p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">${icons.trash2}</button>
                         </div>
@@ -419,7 +419,7 @@
         function setupPdfToPhoto(page) {
             const contentDiv = page.querySelector('.tool-content');
             contentDiv.innerHTML = `
-                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
+                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-6 sm:p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
                     ${icons.fileUp}
                     <p class="mt-2 text-lg font-semibold text-gray-700" data-lang-key="uploadAreaTitle"></p>
                     <input type="file" class="file-input hidden" accept=".pdf" />
@@ -484,7 +484,7 @@
         function setupMergePdf(page) {
             const contentDiv = page.querySelector('.tool-content');
             contentDiv.innerHTML = `
-                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
+                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-6 sm:p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
                     ${icons.fileUp}
                     <p class="mt-2 text-lg font-semibold text-gray-700" data-lang-key="uploadAreaTitle"></p>
                     <input type="file" class="file-input hidden" accept=".pdf" multiple />
@@ -532,7 +532,7 @@
                 });
 
                 const addMoreBtn = document.createElement('div');
-                addMoreBtn.className = "mt-4 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center hover:border-[#0D47A1] transition-colors cursor-pointer p-4";
+                addMoreBtn.className = "mt-4 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center hover:border-[#0D47A1] transition-colors cursor-pointer p-2 sm:p-4";
                 addMoreBtn.innerHTML = `<div class="text-center">${icons.fileUp.replace(/48/g, '32')}<p class="mt-1 text-sm text-gray-600" data-lang-key="selectPDFs"></p></div>`;
                 addMoreBtn.addEventListener('click', () => fileInput.click());
                 fileListContainer.appendChild(addMoreBtn);
@@ -617,7 +617,7 @@
         function setupSplitPdf(page) {
             const contentDiv = page.querySelector('.tool-content');
             contentDiv.innerHTML = `
-                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
+                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-6 sm:p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
                     ${icons.fileUp}
                     <p class="mt-2 text-lg font-semibold text-gray-700" data-lang-key="uploadAreaTitle"></p>
                     <input type="file" class="file-input hidden" accept=".pdf" />
@@ -716,7 +716,7 @@
             const contentDiv = page.querySelector('.tool-content');
             const selectFileKey = tool.accept === 'image/*' ? 'selectImages' : 'selectPDF';
             contentDiv.innerHTML = `
-                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
+                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-6 sm:p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
                     ${icons.fileUp}
                     <p class="mt-2 text-lg font-semibold" data-lang-key="uploadAreaTitle"></p>
                     <input type="file" class="file-input hidden" accept="${tool.accept}" />
@@ -837,7 +837,7 @@
         function setupPdfToWord(page) {
             const contentDiv = page.querySelector('.tool-content');
             contentDiv.innerHTML = `
-                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
+                <div class="upload-container border-2 border-dashed border-gray-300 rounded-lg p-6 sm:p-12 text-center hover:border-[#0D47A1] transition-colors cursor-pointer">
                     ${icons.fileUp}
                     <p class="mt-2 text-lg font-semibold" data-lang-key="uploadAreaTitle"></p>
                     <input type="file" class="file-input hidden" accept=".pdf" />
